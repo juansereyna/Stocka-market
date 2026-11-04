@@ -6,7 +6,10 @@ const ROUTES = [
 const UI = {route:'inicio', invFilter:'todos', invQ:'', priceQ:'', repMonth:monthOf(todayStr()), shopMode:false, purMonth:'todos'};
 function route(){ const h = (location.hash||'').replace('#',''); return ROUTES.some(r=>r[0]===h) || h==='mas' ? h : 'inicio'; }
 function go(r){ if(location.hash!=='#'+r) location.hash = r; else render(); window.scrollTo(0,0); }
-window.addEventListener('hashchange', ()=>{ render(); window.scrollTo(0,0); });
+window.addEventListener('hashchange', ()=>{ UI.prevRoute = UI.route; render(); window.scrollTo(0,0); });
+const MAIN_TABS = {inicio:'Inicio', lista:'Lista', inventario:'Despensa', mas:'Más'};
+function backTarget(){ const p = UI.prevRoute; return (p && MAIN_TABS[p] && p!==UI.route) ? p : 'mas'; }
+function pageHead(title, right){ const t = backTarget(); return `<button class="backbtn" data-a="back" data-r="${t}">${I('chevron-left')}${MAIN_TABS[t]}</button><div class="hdr"><h1>${title}</h1>${right||''}</div>`; }
 let renderPending = false;
 function scheduleRender(){ if(renderPending) return; renderPending = true; requestAnimationFrame(()=>{ renderPending=false; const a = document.activeElement; if(a && $('#main').contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName)){ RT.deferred = true; return; } render(); }); }
 document.addEventListener('focusout', e=>{ if(RT.deferred && $('#main').contains(e.target)){ RT.deferred=false; setTimeout(render, 50); } });
@@ -83,7 +86,7 @@ VIEWS.lista = function(){
   const est = sum(items.map(estimateItem).filter(Boolean)); const cartTot = sum(cart.map(i=>i.realTotal||0));
   const missing = products().filter(p=>(p.inv==='poco'||p.inv==='nohay') && !items.some(i=>i.productId===p.id));
   let h = `<div class="hdr"><h1>Lista de mercado</h1><button class="btn sm ${UI.shopMode?'acc':'sec'}" data-a="toggleShop">${UI.shopMode?'<i data-i=cart></i> En tienda':'<i data-i=cart></i> Modo tienda'}</button></div>`;
-  if(UI.shopMode) h += `<div class="note info">Toca un producto para pasarlo al carrito y anotar el precio. ${S.settings.shopStore?`Comprando en <b>${esc(storeName(S.settings.shopStore))}</b> · <a href="#" data-a="pickShopStore">cambiar</a>`:`<a href="#" data-a="pickShopStore">Elegir tienda</a>`}</div>`;
+  if(UI.shopMode) h += `<div class="note info">Toca un producto para pasarlo al carrito y anotar el precio. ${S.settings.shopStore?`Comprando en <b>${esc(storeName(S.settings.shopStore))}</b> · <a href="#" data-a="pickShopStore">cambiar</a>`:`<a href="#" data-a="pickShopStore">Elegir tienda</a>`} · <a href="#" data-a="toggleShop">Salir del modo tienda</a></div>`;
   h += `<div class="card"><div class="row between"><div><div class="tiny">Estimado total</div><div class="money" style="font-size:1.3rem">${est?cop(est):'—'}</div>${items.some(i=>estimateItem(i)==null)?'<div class="tiny">Estimado: faltan precios de algunos productos</div>':''}</div>${cart.length?`<div class="right"><div class="tiny">En carrito (${cart.length})</div><div class="money" style="font-size:1.3rem">${cop(cartTot)}</div></div>`:''}</div></div>`;
   h += `<div class="row wrap" style="margin-bottom:8px"><button class="btn" data-a="addItem"><i data-i=plus></i> Agregar</button>${missing.length?`<button class="btn sec" data-a="addMissing">Agregar faltantes (${missing.length})</button>`:''}${purchases().length?`<button class="btn ghost" data-a="repeatLast">Repetir última compra</button>`:''}</div>`;
   if(!items.length) return h + `<div class="card empty"><div class="ic"><i data-i=list></i></div><b>La lista está vacía</b><div class="sub">Agrega productos o marca en la despensa lo que está en “Poco” o “No hay”.</div></div>`;
@@ -136,7 +139,7 @@ VIEWS.precios = function(){
   let ps = products().map(p=>{ const o = obsFor(p.id); return {p, o, last:o[o.length-1], prev:o[o.length-2]}; }).filter(x=>x.o.length);
   if(UI.priceQ) ps = ps.filter(x=>norm(x.p.name).includes(norm(UI.priceQ)));
   ps.sort((a,b)=>(b.last.observedAt||'').localeCompare(a.last.observedAt||''));
-  let h = `<div class="hdr"><h1>Precios</h1></div><p class="sub" style="margin-top:-6px">Lo que realmente pagan o ven, normalizado por kg, litro o unidad.</p>
+  let h = `${pageHead('Precios')}<p class="sub" style="margin-top:-6px">Lo que realmente pagan o ven, normalizado por kg, litro o unidad.</p>
     <div class="grid2" style="margin-bottom:10px"><button class="btn acc" data-a="priceMenu"><i data-i=tag></i> Registrar precio</button><button class="btn sec" data-a="monthCompare">Comparar meses</button></div>
     <input class="i" placeholder="Buscar producto…" enterkeyhint="search" value="${esc(UI.priceQ)}" data-in="priceQ" style="margin-bottom:8px">`;
   const pendingObs = Object.entries(S.prices).filter(([id,o])=>o.status==='provisional');
@@ -152,7 +155,7 @@ VIEWS.precios = function(){
 /* ================= COMPRAS ================= */
 VIEWS.compras = function(){
   const all = purchases(); const months = [...new Set(all.map(p=>monthOf(p.date)))];
-  let h = `<div class="hdr"><h1>Compras</h1></div><div class="grid2" style="margin-bottom:10px"><button class="btn" data-a="newPurchase"><i data-i=plus></i> Nueva compra</button><button class="btn sec" data-a="quickPurchase"><i data-i=bolt></i> Compra rápida</button></div><button class="btn ghost full" data-a="photo" data-k="recibo" style="margin-bottom:10px"><i data-i=camera></i> Desde foto de recibo</button>`;
+  let h = `${pageHead('Compras')}<div class="grid2" style="margin-bottom:10px"><button class="btn" data-a="newPurchase"><i data-i=plus></i> Nueva compra</button><button class="btn sec" data-a="quickPurchase"><i data-i=bolt></i> Compra rápida</button></div><button class="btn ghost full" data-a="photo" data-k="recibo" style="margin-bottom:10px"><i data-i=camera></i> Desde foto de recibo</button>`;
   if(!all.length) return h + `<div class="card empty"><div class="ic"><i data-i=receipt></i></div><b>Sin compras registradas</b><div class="sub">Cierra una compra desde la lista, regístrala a mano o desde la foto del recibo.</div></div>`;
   months.forEach(m=>{ const ps = all.filter(p=>monthOf(p.date)===m);
     h += `<div class="cathead row between"><span>${monthName(m)}</span><span class="money">${cop(sum(ps.map(purchaseTotal)))}</span></div><div class="list">` + ps.map(p=>{
@@ -167,7 +170,7 @@ VIEWS.reportes = function(){
   const ps = purchases().filter(p=>monthOf(p.date)===mk); const pps = purchases().filter(p=>monthOf(p.date)===pm);
   const spent = sum(ps.map(purchaseTotal)), pspent = sum(pps.map(purchaseTotal)); const bud = S.settings.budget||0;
   const monthsWithData = new Set(purchases().map(p=>monthOf(p.date))).size;
-  let h = `<div class="hdr"><h1>Reportes</h1></div><div class="row between card" style="padding:8px"><button class="x" data-a="repMonth" data-d="-1">‹</button><b style="text-transform:capitalize">${monthName(mk)}</b><button class="x" data-a="repMonth" data-d="1">›</button></div>`;
+  let h = `${pageHead('Reportes')}<div class="row between card" style="padding:8px"><button class="x" data-a="repMonth" data-d="-1" aria-label="Mes anterior">${I('chevron-left')}</button><b style="text-transform:capitalize">${monthName(mk)}</b><button class="x" data-a="repMonth" data-d="1" aria-label="Mes siguiente">${I('chevron-right')}</button></div>`;
   if(monthsWithData<2) h += `<div class="note info"><i data-i=chart></i> Su historial está en construcción. Con al menos dos meses de compras aparecen las comparaciones entre meses (llevan ${monthsWithData}).</div>`;
   h += `<div class="grid2"><div class="card"><div class="sub">Gastado</div><div class="big money">${cop(spent)}</div>${pspent?`<div class="tiny">${spent>pspent?'<span class="up"><i data-i=arrow-up></i>':'<span class="down"><i data-i=arrow-down></i>'} ${cop(Math.abs(spent-pspent))}</span> vs ${MONTHS[+pm.slice(5)-1]}</div>`:''}</div>
     <div class="card"><div class="sub">Presupuesto</div><div class="big money">${bud?cop(bud):'—'}</div>${bud?`<div class="tiny">${spent<=bud?'<span class="down">Quedan '+cop(bud-spent)+'</span>':'<span class="up">Excedido '+cop(spent-bud)+'</span>'}</div>`:'<div class="tiny"><a href="#ajustes">Definir</a></div>'}</div></div>`;
@@ -201,7 +204,7 @@ VIEWS.reportes = function(){
 /* ================= AJUSTES ================= */
 VIEWS.ajustes = function(){
   const s = S.settings; const custom = Object.entries(S.stores);
-  let h = `<h1>Ajustes</h1>
+  let h = `${pageHead('Ajustes')}
   <div class="card"><h3>Hogar y presupuesto</h3>
     <label class="f">Nombre del hogar</label><input class="i" id="setName" value="${esc(s.householdName)}">
     <label class="f">Presupuesto mensual (COP)</label><input class="i" id="setBudget" inputmode="numeric" value="${s.budget?fnum(s.budget):''}" placeholder="$ 1.200.000">

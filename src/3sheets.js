@@ -1,10 +1,30 @@
 /* ================= HOJAS (MODALES) ================= */
 let SHEET_ON_CLOSE = null;
+const NAV_SHEETS = new Set(['quickActions','priceMenu','manualPrice','photoGal','quickPurchase','newPurchase','addItem','quickReview','catalog','editProduct','newProduct','productPrices','purchase','editPurchase','provisionals','assignProv','monthCompare','starter','exportMenu','newStore','pickShopStore','editItem','cartItem','closePurchase']);
+const SHEETS = {stack:[], cur:null};
+const sheetIsOpen = () => $('#sheetwrap').classList.contains('open');
 function openSheet(title, body, onClose){
-  $('#sheet').innerHTML = `<div class="grab"></div><div class="sheethead"><h2>${title}</h2><button class="x" data-a="closeSheet" aria-label="Cerrar"><i data-i=close></i></button></div>${body}`;
+  const ctx = RT.actCtx; let canBack = false;
+  if(ctx && ctx.replay){ SHEETS.cur = {a:ctx.a, ds:ctx.ds}; canBack = SHEETS.stack.length>0; }
+  else if(ctx && NAV_SHEETS.has(ctx.a)){
+    if(ctx.inSheet && sheetIsOpen() && SHEETS.cur && SHEETS.cur.a!==ctx.a) SHEETS.stack.push(SHEETS.cur);
+    else if(!ctx.inSheet) SHEETS.stack = [];
+    SHEETS.cur = {a:ctx.a, ds:ctx.ds}; canBack = SHEETS.stack.length>0;
+  } else if(ctx && ctx.inSheet && sheetIsOpen()){ canBack = SHEETS.stack.length>0; }
+  else { SHEETS.stack = []; SHEETS.cur = null; }
+  const wasOpen = sheetIsOpen();
+  $('#sheet').innerHTML = `<div class="grab"></div><div class="sheethead">${canBack?`<button class="x" data-a="sheetBack" aria-label="Volver">${I('chevron-left')}</button>`:''}<h2 class="grow">${title}</h2><button class="x" data-a="closeSheet" aria-label="Cerrar">${I('close')}</button></div>${body}`;
   $('#sheetwrap').classList.add('open'); document.body.style.overflow='hidden'; SHEET_ON_CLOSE = onClose||null; $('#sheet').scrollTop = 0;
+  if(!wasOpen){ try{ if(!(history.state && history.state.stockaSheet)) history.pushState({stockaSheet:1}, ''); }catch(e){} }
 }
-function closeSheet(){ $('#sheetwrap').classList.remove('open'); $('#sheet').innerHTML=''; document.body.style.overflow=''; const f = SHEET_ON_CLOSE; SHEET_ON_CLOSE=null; if(f) f(); scheduleRender(); }
+function closeSheet(noHistory){
+  if(!sheetIsOpen()) return;
+  $('#sheetwrap').classList.remove('open'); $('#sheet').innerHTML=''; document.body.style.overflow=''; SHEETS.stack=[]; SHEETS.cur=null;
+  const f = SHEET_ON_CLOSE; SHEET_ON_CLOSE=null; if(f) f(); scheduleRender();
+  if(noHistory!==true) setTimeout(()=>{ try{ if(!sheetIsOpen() && history.state && history.state.stockaSheet) history.back(); }catch(e){} }, 60);
+}
+// botón/gesto "atrás" del sistema: primero retrocede entre hojas, luego cierra la hoja
+window.addEventListener('popstate', ()=>{ if(!sheetIsOpen()) return; if(SHEETS.stack.length){ ACT.sheetBack(); try{ history.pushState({stockaSheet:1}, ''); }catch(e){} } else closeSheet(true); });
 $('#sheetwrap').addEventListener('click', e=>{ if(e.target.id==='sheetwrap') closeSheet(); });
 // deslizar hacia abajo desde el encabezado para cerrar
 (()=>{ let y0 = null, dy = 0; const sh = $('#sheet');
@@ -61,6 +81,8 @@ function productSheet(id){
   $('#ppName').oninput = ()=>{ const d = findDuplicate(val('ppName')); $('#ppDup').innerHTML = d && d.id!==id ? `<div class="note warn">Ya existe “${esc(d.name)}”. ¿Es el mismo? Mejor edita ese.</div>` : ''; };
 }
 const ACT = {};
+ACT.sheetBack = ()=>{ const prev = SHEETS.stack.pop(); if(!prev || !ACT[prev.a]) return closeSheet(); const keep = RT.actCtx; RT.actCtx = {a:prev.a, ds:prev.ds, replay:true}; try{ ACT[prev.a]({dataset:prev.ds, tagName:'BUTTON', remove(){}}, {stopPropagation(){}, preventDefault(){}}); } finally { RT.actCtx = keep; } };
+ACT.back = el=>go(el.dataset.r);
 ACT.newProduct = ()=>productSheet(null);
 ACT.editProduct = el=>productSheet(el.dataset.id);
 ACT.saveProduct = el=>{
@@ -267,7 +289,7 @@ ACT.peSave = ()=>{
   if(!PE.storeId) return toast('Elige la tienda');
   if(!items.length && PE.totalPaid==null) return toast('Agrega productos o el total pagado');
   if(PE.date > todayStr()) return toast('La fecha no puede ser futura');
-  finalizePurchase(PE); const was = PE.id; closeSheet(); PE = null; UI.shopMode = false; keepAwake(false); buzz(30);
+  finalizePurchase(PE); const was = PE.id; closeSheet(true); try{ if(history.state && history.state.stockaSheet) history.replaceState(null,''); }catch(e){} PE = null; UI.shopMode = false; keepAwake(false); buzz(30);
   toast(was ? 'Compra corregida (queda registro del cambio)' : 'Compra registrada'); go(was?'compras':'inicio');
 };
 function finalizePurchase(pe){
@@ -329,7 +351,7 @@ ACT.quickActions = ()=>{
     <button data-a="newPurchase"><span class="ic"><i data-i=cart></i></span>Compra detallada</button>
     <button data-a="addItem"><span class="ic"><i data-i=list></i></span>Agregar a la lista</button>
     <button data-a="quickReview"><span class="ic"><i data-i=pantry></i></span>Revisar despensa</button>
-    <button data-a="go" data-r="reportes" onclick="closeSheet()"><span class="ic"><i data-i=chart></i></span>Ver reportes</button></div>`);
+    <button data-a="go" data-r="reportes"><span class="ic"><i data-i=chart></i></span>Ver reportes</button></div>`);
 };
 ACT.hideTip = ()=>{ try{ localStorage.setItem('mec_tip_home','1'); }catch(e){} render(); };
 

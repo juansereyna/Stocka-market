@@ -148,8 +148,14 @@ nav#bottom button.plus span.lb{color:var(--pine)}
 @media(min-width:700px){#sheetwrap{align-items:center}#sheet{border-radius:var(--radius-xl);max-height:88vh}}
 @keyframes up{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
 @keyframes tin{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+.backbtn{border:0;background:none;color:var(--pine);font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:2px;min-height:40px;padding:0 10px 0 0;margin:0 0 -4px -6px}
+.backbtn i[data-i]{font-size:22px}
+@media(min-width:900px){.backbtn{display:none}}
 .grab{width:40px;height:4px;border-radius:9px;background:var(--line-strong);opacity:.6;margin:4px auto 0}
-@media(min-width:700px){.grab{display:none}}
+@media(min-width:700px){.backbtn{border:0;background:none;color:var(--pine);font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:2px;min-height:40px;padding:0 10px 0 0;margin:0 0 -4px -6px}
+.backbtn i[data-i]{font-size:22px}
+@media(min-width:900px){.backbtn{display:none}}
+.grab{display:none}}
 .sheethead{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:-6px;background:var(--surface);padding:10px 0 12px;z-index:2}
 .sheethead h2{margin:0;font-size:20px;line-height:26px;display:flex;align-items:center;gap:8px;min-width:0}
 .x{border:0;background:var(--surface-sunken);color:var(--ink);width:44px;height:44px;border-radius:var(--radius-md);font-size:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}

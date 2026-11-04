@@ -198,7 +198,7 @@ ACT.clearDemo = ()=>confirmSheet('Borrar datos de ejemplo', 'Se borran solo los 
   ids.forEach(id=>remove('products', id)); toast('Ejemplos borrados'); }, true);
 
 /* ================= EVENTOS ================= */
-ACT.go = el=>go(el.dataset.r);
+ACT.go = el=>{ if(sheetIsOpen()){ closeSheet(true); try{ if(history.state && history.state.stockaSheet) history.replaceState(null,''); }catch(e){} } go(el.dataset.r); };
 ACT.closeSheet = ()=>closeSheet();
 ACT.repMonth = el=>{ UI.repMonth = monthShift(UI.repMonth, +el.dataset.d); render(); };
 document.addEventListener('click', e=>{
@@ -206,8 +206,9 @@ document.addEventListener('click', e=>{
   const a = el.dataset.a; if(!ACT[a]) return;
   if(el.tagName==='A') e.preventDefault();
   if(['setInv','addToList','snooze','uncart','cartItem','delObs'].includes(a)) e.stopPropagation();
-  if(!RT.canWrite && !['go','closeSheet','repMonth','invFilter','productPrices','purchase','exportMenu','doExport','monthCompare','toggleShop','catalog','priceMenu'].includes(a)){ toast('Solo lectura: pide permiso de edición a quien comparte la app.'); return; }
-  try{ ACT[a](el, e); }catch(err){ console.error(err); toast('Algo falló: '+(err.message||err)); }
+  if(!RT.canWrite && !['go','back','sheetBack','closeSheet','repMonth','invFilter','productPrices','purchase','exportMenu','doExport','monthCompare','toggleShop','catalog','priceMenu'].includes(a)){ toast('Solo lectura: pide permiso de edición a quien comparte la app.'); return; }
+  RT.actCtx = {a, ds:Object.assign({}, el.dataset), inSheet: sheetIsOpen() && $('#sheet').contains(el)};
+  try{ ACT[a](el, e); }catch(err){ console.error(err); toast('Algo falló: '+(err.message||err)); } finally { RT.actCtx = null; }
 });
 document.addEventListener('input', e=>{
   const t = e.target;
