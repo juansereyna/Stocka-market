@@ -21,6 +21,6 @@ for (const d of ['dist', 'dist-artifact']) rmSync(new URL(d, root), { recursive:
 mkdirSync(new URL('dist', root)); mkdirSync(new URL('dist-artifact', root));
 cpSync(new URL('public', root), new URL('dist', root), { recursive: true });
 writeFileSync(new URL('dist/index.html', root), app.replace('<!--PWA-->', pwa));
-writeFileSync(new URL('dist/sw.js', root), read('public/sw.js').replace('__VERSION__', version));
+writeFileSync(new URL('dist/sw.js', root), read('public/sw.js').replaceAll('__VERSION__', version));
 writeFileSync(new URL('dist-artifact/index.html', root), app.replace('<!--PWA-->\n', ''));
 console.log(`Stocka ${version}: dist/ (${(app.length / 1024).toFixed(0)} KB) y dist-artifact/ listos.`);

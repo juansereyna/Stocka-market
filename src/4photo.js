@@ -257,7 +257,7 @@ setInterval(resolveNames, 8000);
 ACT.installApp = async ()=>{ const e = RT.installEvt; if(!e) return; e.prompt(); try{ await e.userChoice; }catch(er){} RT.installEvt = null; render(); };
 if(RT.standalone){
   window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); RT.installEvt = e; scheduleRender(); });
-  if('serviceWorker' in navigator && location.protocol==='https:') window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/sw.js').catch(()=>{}); });
+  if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')) window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/sw.js').catch(()=>{}); });
 }
 
 /* ================= ARRANQUE ================= */
