@@ -1,0 +1,23 @@
+{
+  "name": "Stocka",
+  "short_name": "Stocka",
+  "description": "Lo que hay, lo que falta y lo que cuesta: lista de mercado, despensa, precios y presupuesto del hogar.",
+  "lang": "es-CO",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F6F2",
+  "theme_color": "#F6F6F2",
+  "categories": ["food", "finance", "lifestyle", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Lista de mercado", "url": "/#lista", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Despensa", "url": "/#inventario", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

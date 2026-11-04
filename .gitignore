@@ -1,0 +1,5 @@
+dist/
+dist-artifact/
+node_modules/
+.netlify/
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "name": "stocka-market",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stocka: lista de mercado, despensa, precios y presupuesto del hogar (Colombia, COP).",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "serve": "node scripts/build.mjs && npx --yes serve dist"
+  },
+  "engines": { "node": ">=18" }
+}
