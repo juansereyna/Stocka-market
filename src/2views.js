@@ -1,7 +1,7 @@
 /* ================= NAVEGACIÓN Y RENDER ================= */
 const ROUTES = [
   ['inicio','Inicio','<i data-i=home></i>'],['lista','Lista','<i data-i=list></i>'],['inventario','Despensa','<i data-i=pantry></i>'],['precios','Precios','<i data-i=tag></i>'],
-  ['compras','Compras','<i data-i=receipt></i>'],['reportes','Reportes','<i data-i=chart></i>'],['ajustes','Ajustes','<i data-i=settings></i>']
+  ['servicios','Servicios','<i data-i=svc-luz></i>'],['compras','Compras','<i data-i=receipt></i>'],['reportes','Reportes','<i data-i=chart></i>'],['ajustes','Ajustes','<i data-i=settings></i>']
 ];
 const UI = {route:'inicio', invFilter:'todos', invQ:'', priceQ:'', repMonth:monthOf(todayStr()), shopMode:false, purMonth:'todos'};
 function route(){ const h = (location.hash||'').replace('#',''); return ROUTES.some(r=>r[0]===h) || h==='mas' ? h : 'inicio'; }
@@ -18,7 +18,7 @@ function navHTML(cur){
   const mob = [['inicio','Inicio','<i data-i=home></i>'],['lista','Lista','<i data-i=list></i>'],['plus','',''],['inventario','Despensa','<i data-i=pantry></i>'],['mas','Más','<i data-i=more></i>']];
   const nList = Object.values(S.list).filter(i=>i.status!=='carrito').length;
   $('#bottom').innerHTML = mob.map(([id,n,ic])=> id==='plus' ? `<button class="plus" data-a="quickActions" aria-label="Acciones rápidas"><span class="pc"><i data-i=plus></i></span><span class="lb">Registrar</span></button>` :
-    `<button data-a="go" data-r="${id}" class="${(cur===id || (id==='mas' && ['precios','compras','reportes','ajustes','mas'].includes(cur)))?'on':''}"><span class="ic" style="position:relative"><span class="em">${ic}</span>${id==='lista'&&nList?`<span class="badge">${nList}</span>`:''}</span>${n}</button>`).join('');
+    `<button data-a="go" data-r="${id}" class="${(cur===id || (id==='mas' && ['precios','servicios','compras','reportes','ajustes','mas'].includes(cur)))?'on':''}"><span class="ic" style="position:relative"><span class="em">${ic}</span>${id==='lista'&&nList?`<span class="badge">${nList}</span>`:''}</span>${n}</button>`).join('');
   $('#side').innerHTML = `<div class="brand brandbar">${LOGO_MARK(30)}<span style="color:var(--ink)">${LOGO_WORD(20)}</span></div><button class="sideadd" data-a="quickActions">${I('plus')}Registrar</button>` + ROUTES.map(([id,n,ic])=>`<button data-a="go" data-r="${id}" class="${cur===id?'on':''}">${ic}${n}</button>`).join('') + `<div style="flex:1"></div><div style="padding:8px 12px">${statusHTML()}</div>`;
 }
 function statusHTML(short){
@@ -33,6 +33,7 @@ function render(){
   const r = route(); UI.route = r; navHTML(r);
   const ready = RT.mode!=='cargando' && (RT.mode==='local' || COLLS.every(c=>RT.loaded[c]) || RT.stale);
   if(!ready){ $('#main').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:10px">Cargando sus datos…</div></div>`; return; }
+  if(needsLock() && !isUnlocked() && !($('#lock') && $('#lock').style.display==='flex')) showLock();
   const fn = VIEWS[r] || VIEWS.inicio;
   $('#main').innerHTML = fn();
 }
@@ -49,7 +50,7 @@ VIEWS.inicio = function(){
   const empty = !products().length;
   const lastAct = Object.values(S.products).concat(Object.values(S.purchases)).map(x=>x.updatedAt||'').sort().pop();
   const idle = lastAct && daysBetween(lastAct.slice(0,10), todayStr()) > 10;
-  let h = `<div class="hdr" style="margin:6px 0 16px"><div class="brandbar">${LOGO_MARK(36)}<div><div class="greet">${esc(S.settings.householdName)}</div><h1 style="margin:2px 0 0;color:var(--ink);line-height:0">${LOGO_WORD(22)}</h1></div></div><div>${statusHTML(true)}</div></div>`;
+  let h = `<div class="hdr" style="margin:6px 0 16px"><div class="brandbar">${LOGO_MARK(36)}<div><div class="greet">${esc(S.settings.householdName)}</div><h1 style="margin:2px 0 0;color:var(--ink);line-height:0">${LOGO_WORD(22)}</h1></div></div><div class="row" style="gap:8px">${statusHTML(true)}<button class="avbtn" data-a="profileMenu" aria-label="Perfil">${avatar(currentProfile(),36)}</button></div></div>`;
   if(RT.mode==='local' && !RT.standalone) h += `<div class="note warn">Estás viendo una vista previa: los datos se guardan solo en este navegador. Abre la app publicada para compartirla con tu pareja.</div>`;
   let hideTip = false; try{ hideTip = localStorage.getItem('mec_tip_home')==='1'; }catch(e){}
   const installed = window.matchMedia && (matchMedia('(display-mode: standalone)').matches || navigator.standalone);
@@ -59,7 +60,10 @@ VIEWS.inicio = function(){
   if(empty) h += `<div class="card"><h3> Empecemos</h3><p class="sub">Agrega los productos que suelen comprar. Puedes partir de una lista de básicos colombianos y ajustarla.</p><div class="row wrap"><button class="btn" data-a="starter">Elegir productos básicos</button><button class="btn ghost" data-a="newProduct">Crear uno</button></div></div>`;
   h += `<div class="card"><div class="row between"><div><div class="sub">Gastado en ${monthName(mk)}</div><div class="big money">${cop(spent)}</div></div>${bud?`<div class="right"><div class="sub">Disponible</div><div class="money" style="font-size:1.2rem;color:${bud-spent<0?'var(--bad)':'var(--green)'}">${cop(bud-spent)}</div></div>`:`<button class="btn sm sec" data-a="go" data-r="ajustes">Definir presupuesto</button>`}</div>`;
   if(bud){ const p = Math.min(100, spent/bud*100); h += `<div class="bar ${spent>bud?'over':''}" style="margin-top:10px"><div style="width:${p}%"></div></div><div class="tiny" style="margin-top:4px">${Math.round(spent/bud*100)}% de ${cop(bud)}</div>`; }
+  { const sv = servicesMonthTotal(mk); const pend = bills().filter(b=>b.period===mk && b.status!=='pagada'); if(sv || services().length) h += `<div class="row between tap" data-a="go" data-r="servicios" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);cursor:pointer"><span class="sub">${I('svc-luz')} Servicios del mes</span><span><b class="money">${cop(sv)}</b>${pend.length?` <span class="chip warn">${pend.length} por pagar</span>`:''}</span></div>`; }
   h += `</div>`;
+  { const up = upcomingBills(7); if(up.length) h += `<h2>Próximos pagos</h2><div class="list">${up.slice(0,4).map(billRow).join('')}</div>`; }
+  if(!profiles().length && !empty) h += `<div class="card row between"><div class="row">${I('lock')}<div><b>Protege la app con una clave</b><div class="sub">Crea tu perfil para entrar con un PIN.</div></div></div><button class="btn sm" data-a="newProfile">Crear</button></div>`;
   h += `<div class="grid4" style="margin-bottom:12px">
     <button class="action hi" data-a="priceMenu"><span class="ic"><i data-i=tag></i></span>Registrar precio</button>
     <button class="action" data-a="photo" data-k="recibo"><span class="ic"><i data-i=camera></i></span>Foto de recibo</button>
@@ -76,7 +80,7 @@ VIEWS.inicio = function(){
   return h;
 };
 VIEWS.mas = function(){
-  return `<h1>Más</h1><div class="list">${[['precios','Precios','<i data-i=tag></i>','Historial de precios y comparación entre meses'],['compras','Compras','<i data-i=receipt></i>','Historial de todo lo que han comprado'],['reportes','Reportes','<i data-i=chart></i>','Qué va bien y qué va mal cada mes'],['ajustes','Ajustes','<i data-i=settings></i>','Presupuesto, tiendas, catálogo, unidades, exportar']].map(([r,n,ic,d])=>`<div class="item tap" data-a="go" data-r="${r}"><span class="tile">${ic}</span><div class="grow"><div class="name">${n}</div><div class="tiny">${d}</div></div><span style="color:var(--ink-subtle)"><i data-i=chevron-right></i></span></div>`).join('')}</div><div style="margin-top:12px">${statusHTML()}</div>`;
+  return `<h1>Más</h1><div class="list">${[['servicios','Servicios del hogar','<i data-i=svc-luz></i>','Agua, energía, gas, internet: consumo y pagos'],['precios','Precios','<i data-i=tag></i>','Historial de precios y comparación entre meses'],['compras','Compras','<i data-i=receipt></i>','Historial de todo lo que han comprado'],['reportes','Reportes','<i data-i=chart></i>','Qué va bien y qué va mal cada mes'],['ajustes','Ajustes','<i data-i=settings></i>','Presupuesto, tiendas, catálogo, unidades, exportar']].map(([r,n,ic,d])=>`<div class="item tap" data-a="go" data-r="${r}"><span class="tile">${ic}</span><div class="grow"><div class="name">${n}</div><div class="tiny">${d}</div></div><span style="color:var(--ink-subtle)"><i data-i=chevron-right></i></span></div>`).join('')}</div><div style="margin-top:12px">${statusHTML()}</div>`;
 };
 
 /* ================= LISTA ================= */
@@ -101,7 +105,7 @@ VIEWS.lista = function(){
 function listRow(i){
   const lp = lastPaidUnit(i.productId); const est = estimateItem(i); const inCart = i.status==='carrito';
   const prio = i.prio==='urgente' ? '<span class="chip bad">Urgente</span>' : i.prio==='opcional' ? '<span class="chip grey">Opcional</span>' : '';
-  const who = i.createdBy && RT.names[i.createdBy] ? ` · agregó ${esc(RT.names[i.createdBy])}` : '';
+  const who = whoName(i.createdBy) ? ` · agregó ${esc(whoName(i.createdBy))}` : '';
   return `<div class="item tap ${inCart?'done':''}" data-a="${UI.shopMode?'cartItem':'editItem'}" data-id="${i.id}">
     <div class="check ${inCart?'on':''}" data-a="${inCart?'uncart':'cartItem'}" data-id="${i.id}">${inCart?'<i data-i=check></i>':''}</div>
     <div class="grow"><div class="name">${esc(i.p.name)} ${prio}</div>
@@ -172,10 +176,14 @@ VIEWS.reportes = function(){
   const monthsWithData = new Set(purchases().map(p=>monthOf(p.date))).size;
   let h = `${pageHead('Reportes')}<div class="row between card" style="padding:8px"><button class="x" data-a="repMonth" data-d="-1" aria-label="Mes anterior">${I('chevron-left')}</button><b style="text-transform:capitalize">${monthName(mk)}</b><button class="x" data-a="repMonth" data-d="1" aria-label="Mes siguiente">${I('chevron-right')}</button></div>`;
   if(monthsWithData<2) h += `<div class="note info"><i data-i=chart></i> Su historial está en construcción. Con al menos dos meses de compras aparecen las comparaciones entre meses (llevan ${monthsWithData}).</div>`;
-  h += `<div class="grid2"><div class="card"><div class="sub">Gastado</div><div class="big money">${cop(spent)}</div>${pspent?`<div class="tiny">${spent>pspent?'<span class="up"><i data-i=arrow-up></i>':'<span class="down"><i data-i=arrow-down></i>'} ${cop(Math.abs(spent-pspent))}</span> vs ${MONTHS[+pm.slice(5)-1]}</div>`:''}</div>
+  h += `<div class="grid2"><div class="card"><div class="sub">Mercado</div><div class="big money">${cop(spent)}</div>${pspent?`<div class="tiny">${spent>pspent?'<span class="up"><i data-i=arrow-up></i>':'<span class="down"><i data-i=arrow-down></i>'} ${cop(Math.abs(spent-pspent))}</span> vs ${MONTHS[+pm.slice(5)-1]}</div>`:''}</div>
     <div class="card"><div class="sub">Presupuesto</div><div class="big money">${bud?cop(bud):'—'}</div>${bud?`<div class="tiny">${spent<=bud?'<span class="down">Quedan '+cop(bud-spent)+'</span>':'<span class="up">Excedido '+cop(spent-bud)+'</span>'}</div>`:'<div class="tiny"><a href="#ajustes">Definir</a></div>'}</div></div>`;
   if(mk===monthOf(todayStr()) && new Date().getDate()>=7 && spent){ const d = new Date(); const dim = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); const proj = spent/d.getDate()*dim;
     h += `<div class="note ${bud && proj>bud?'warn':'info'}">Proyección (si siguen al mismo ritmo): <b>${cop(proj)}</b> al final del mes${bud&&proj>bud?' — superaría el presupuesto':''}.</div>`; }
+  { const ms = last12(); const merc = ms.map(m=>monthSpend(m)), serv = ms.map(m=>servicesMonthTotal(m));
+    if(sum(merc)+sum(serv)>0) h += `<h2>Gasto del hogar por mes</h2><div class="card">${barChart({labels:ms, series:[{name:'Mercado', color:CHART_C1, values:merc},{name:'Servicios', color:CHART_C2, values:serv}], short:monthShort, tipLabel:monthName, height:210, title:'Gasto del hogar por mes'})}</div>`; }
+  { const sv = servicesMonthTotal(mk), svp = servicesMonthTotal(pm); if(sv || svp){ const bySvc = services(true).map(s=>({s, v:sum(bills().filter(b=>b.serviceId===s.id && b.period===mk).map(b=>b.amount||0)), pv:sum(bills().filter(b=>b.serviceId===s.id && b.period===pm).map(b=>b.amount||0))})).filter(x=>x.v||x.pv).sort((a,b)=>b.v-a.v); const mx = Math.max(1,...bySvc.map(x=>x.v));
+    h += `<h2>Servicios del mes</h2><div class="card"><div class="row between" style="margin-bottom:6px"><span class="sub">Total</span><b class="money">${cop(sv)}</b></div>${bySvc.map(x=>`<div class="hbar"><span>${svcIco(x.s)} ${esc(x.s.name)}</span><div class="t"><div style="width:${x.v/mx*100}%;background:var(--chart-2)"></div></div><span class="money">${cop(x.v)}</span></div>${x.pv?`<div class="tiny" style="margin:-4px 0 6px 128px">Mes anterior ${cop(x.pv)}${x.v&&x.pv?` · <span class="${x.v>x.pv?'up':'down'}">${pct((x.v-x.pv)/x.pv*100)}</span>`:''}</div>`:''}`).join('')}</div>`; } }
   h += `<div class="card"><div class="row between"><span>Compras</span><b>${ps.length}</b></div><div class="row between"><span>Promedio por compra</span><b class="money">${ps.length?cop(spent/ps.length):'—'}</b></div></div>`;
   // por categoría
   const bc = spendByCat(mk); const bcPrev = spendByCat(pm); const cats = Object.entries(bc).sort((a,b)=>b[1]-a[1]); const mx = Math.max(1,...cats.map(c=>c[1]));
@@ -212,6 +220,11 @@ VIEWS.ajustes = function(){
       ${CATS.map(c=>`<div class="row" style="margin:6px 0"><span class="grow">${c.ic} ${c.name}</span><input class="i" style="max-width:150px" inputmode="numeric" data-bcat="${c.id}" value="${(s.budgetCat||{})[c.id]?fnum(s.budgetCat[c.id]):''}"></div>`).join('')}
     </details>
     <button class="btn full" data-a="saveSettings" style="margin-top:12px">Guardar</button></div>
+  <div class="card"><h3>Perfiles y clave</h3><p class="sub">Cada persona puede tener su perfil con una clave de 4 a 6 números para abrir la app.</p>
+    <div class="list" style="margin-top:8px">${profiles().map(p=>`<div class="item tap" data-a="editProfile" data-id="${esc(p.id)}">${avatar(p)}<div class="grow"><div class="name">${esc(p.name)}${currentProfile()&&currentProfile().id===p.id?' <span class="chip">Activo</span>':''}</div><div class="tiny">${p.pinHash?'Con clave':'Sin clave'}</div></div><span style="color:var(--ink-subtle)">${I('chevron-right')}</span></div>`).join('')}<div class="item tap" data-a="newProfile"><span class="tile pine">${I('plus')}</span><div class="grow name">Agregar perfil</div></div></div>
+    <label class="f">Bloquear automáticamente después de</label><select class="i" id="setAutoLock">${[[0,'Solo al abrir la app'],[5,'5 minutos sin usar'],[10,'10 minutos sin usar'],[30,'30 minutos sin usar']].map(([v,n])=>`<option value="${v}" ${(S.settings.autoLockMin??10)==v?'selected':''}>${n}</option>`).join('')}</select>
+    ${needsLock()?`<button class="btn ghost full" data-a="lockNow" style="margin-top:10px">${I('lock')}Bloquear ahora</button>`:''}</div>
+  <div class="card"><h3>Servicios del hogar</h3><p class="sub">${services().length} servicios · ${bills().length} facturas registradas.</p><button class="btn sec full" data-a="go" data-r="servicios">${I('svc-luz')}Ir a servicios</button></div>
   <div class="card"><h3>Unidades locales</h3><p class="sub">Equivalencias usadas en plaza. Verifíquenlas: no hay una norma única.</p>
     <div class="grid2"><div><label class="f">1 libra = gramos</label><input class="i" id="setLibra" inputmode="numeric" value="${s.libraG}"></div><div><label class="f">1 cubeta = huevos</label><input class="i" id="setCubeta" inputmode="numeric" value="${s.cubeta}"></div></div>
     <div class="tiny" style="margin-top:6px">Arroba = 25 libras (${fnum(s.libraG*25/1000)} kg). Libra internacional = 453,6 g.</div>

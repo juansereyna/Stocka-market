@@ -27,6 +27,15 @@ Responde solo con un objeto JSON con esta forma exacta:
  "lineas": [{"texto": string, "descripcion": string|null, "cantidad": número|null, "unidad": "und"|"kg"|"g"|"lb"|"L"|"ml"|null, "precio_unitario": entero|null, "total_linea": entero|null, "es_pesado": boolean, "categoria_sugerida": "${CAT_IDS}", "confianza": "alta"|"baja"}],
  "subtotal": entero|null, "descuentos_totales": entero|null, "impuestos": entero|null, "total": entero|null, "advertencias": [string]}
 No incluyas como productos las líneas de IVA, subtotal, total, cambio, efectivo, tarjeta ni datos del cliente (nombre o cédula: ignóralos).`;
+const PROMPT_BILL = `Eres un lector de facturas de servicios públicos y del hogar en Colombia (agua, energía, gas, internet, celular, administración). La imagen es una foto de una factura.
+Reglas estrictas:
+- Transcribe SOLO lo que se lee. Si un valor no es legible o no aparece, usa null. No inventes valores ni calcules.
+- En Colombia el punto separa miles: "$ 125.400" es 125400. El consumo puede tener decimales con coma.
+- "valor_total" es el total a pagar de ESTA factura (no el saldo anterior ni subtotales).
+- "periodo" es el mes facturado o consumido (AAAA-MM). Si la factura cubre dos meses, usa el mes final.
+- Ignora nombres, cédulas y direcciones del cliente.
+Responde solo con un objeto JSON con esta forma exacta:
+{"es_factura": boolean, "empresa": string|null, "tipo": "agua"|"luz"|"gas"|"internet"|"celular"|"tv"|"admin"|"arriendo"|"aseo"|"otro", "periodo": "AAAA-MM"|null, "consumo": número|null, "unidad_consumo": "kWh"|"m³"|null, "valor_total": entero|null, "fecha_limite": "AAAA-MM-DD"|null, "referencia_pago": string|null, "confianza": {"valor": "alta"|"baja", "consumo": "alta"|"baja"}}`;
 const STORE_ALIASES = [['koba','d1'],['d1 ','d1'],['tiendas d1','d1'],['jeronimo martins','ara'],['tiendas ara','ara'],['isimo','isimo'],['almacenes exito','exito'],['exito','exito'],['carulla','carulla'],['olimpica','olimpica'],['sao','olimpica'],['cencosud','jumbo'],['jumbo','jumbo'],['metro','metro'],['colombiana de comercio','alkosto'],['alkosto','alkosto'],['ktronix','alkosto'],['makro','makro'],['pricesmart','pricesmart']];
 function matchStore(text){ if(!text) return ''; const t = ' '+norm(text)+' ';
   for(const s of allStores(true)){ if(!s.builtin && t.includes(' '+norm(s.name)+' ')) return s.id; }
@@ -49,21 +58,21 @@ function photoConsent(then){
   $('#pcOk').onclick = ()=>{ try{ localStorage.setItem('mec_photo_ok','1'); }catch(e){} closeSheet(); then(); };
 }
 ACT.photo = el=>{ const k = el.dataset.k; photoConsent(()=>{ RT.photoKind = k; const i = $('#photoInput'); i.value=''; i.click(); }); };
-ACT.photoGal = ()=>{ photoConsent(()=>{ openSheet('¿Qué foto vas a subir?', `<div class="grid2"><button class="btn" id="pgL"><i data-i=tag></i> Etiqueta</button><button class="btn" id="pgR"><i data-i=receipt></i> Recibo</button></div>`);
+ACT.photoGal = ()=>{ photoConsent(()=>{ openSheet('¿Qué foto vas a subir?', `<div class="grid2"><button class="btn" id="pgL"><i data-i=tag></i> Etiqueta</button><button class="btn" id="pgR"><i data-i=receipt></i> Recibo</button></div><button class="btn sec full" id="pgF" style="margin-top:10px"><i data-i=wallet></i> Factura de servicio</button>`);
   $('#pgL').onclick = ()=>{ RT.photoKind='etiqueta'; const i=$('#photoInputGal'); i.value=''; i.click(); closeSheet(); };
-  $('#pgR').onclick = ()=>{ RT.photoKind='recibo'; const i=$('#photoInputGal'); i.value=''; i.click(); closeSheet(); }; }); };
+  $('#pgR').onclick = ()=>{ RT.photoKind='recibo'; const i=$('#photoInputGal'); i.value=''; i.click(); closeSheet(); }; $('#pgF').onclick = ()=>{ RT.photoKind='factura'; const i=$('#photoInputGal'); i.value=''; i.click(); closeSheet(); }; }); };
 ['#photoInput','#photoInputGal'].forEach(s=>$(s).addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; if(f) processPhoto(f, RT.photoKind||'etiqueta'); }));
 async function processPhoto(file, kind){
   const url = URL.createObjectURL(file);
-  const manual = (warn)=>{ if(kind==='recibo'){ PE = newPE({source:'foto_recibo', photoUrl:url, warnings:[warn]}); peSheet('Compra desde recibo'); } else priceFormSheet({title:'Precio desde foto', photoUrl:url, source:'foto_etiqueta', warnings:[warn]}); };
+  const manual = (warn)=>{ if(kind==='factura') return billSheet(null, {photoUrl:url, warnings:[warn], source:'foto_factura'}); if(kind==='recibo'){ PE = newPE({source:'foto_recibo', photoUrl:url, warnings:[warn]}); peSheet('Compra desde recibo'); } else priceFormSheet({title:'Precio desde foto', photoUrl:url, source:'foto_etiqueta', warnings:[warn]}); };
   if(!RT.sample || RT.imagesOK===false) return manual('La lectura automática no está disponible aquí. Ingresa los datos mirando la foto.');
   const ctl = new AbortController();
-  openSheet(kind==='recibo'?'Leyendo el recibo…':'Leyendo la etiqueta…', `<img class="photo" src="${url}"><div class="row" style="justify-content:center;margin:16px 0"><span class="spin"></span><span class="sub">Esto puede tardar hasta un minuto${kind==='recibo'?' en recibos largos':''}.</span></div><button class="btn ghost full" id="phStop">Cancelar</button>`);
+  openSheet(kind==='recibo'?'Leyendo el recibo…':kind==='factura'?'Leyendo la factura…':'Leyendo la etiqueta…', `<img class="photo" src="${url}"><div class="row" style="justify-content:center;margin:16px 0"><span class="spin"></span><span class="sub">Esto puede tardar hasta un minuto${kind==='recibo'?' en recibos largos':''}.</span></div><button class="btn ghost full" id="phStop">Cancelar</button>`);
   $('#phStop').onclick = ()=>{ ctl.abort(); closeSheet(); };
   let data;
   try{
     const img = await resizeImage(file);
-    data = await RT.sample.json(kind==='recibo' ? PROMPT_RECEIPT : PROMPT_LABEL, {images:[img], signal:ctl.signal, modelTier:'default'});
+    data = await RT.sample.json(kind==='recibo' ? PROMPT_RECEIPT : kind==='factura' ? PROMPT_BILL : PROMPT_LABEL, {images:[img], signal:ctl.signal, modelTier:'default'});
   }catch(e){
     if(e && e.code==='cancelled') return;
     const msg = {not_granted:'No se dio permiso para usar Claude en esta app.', rate_limited:'Demasiadas lecturas seguidas o se alcanzó el límite de uso. Intenta más tarde.', image_rejected:'La imagen no se pudo procesar. Prueba con otra foto.', invalid_json:'No se pudo interpretar la lectura. Prueba con otra foto más nítida.', images_unavailable:'Esta vista no permite enviar imágenes.', refused:'No se pudo leer esta imagen.'}[e&&e.code] || 'No se pudo leer la foto (problema de conexión).';
@@ -71,7 +80,7 @@ async function processPhoto(file, kind){
     return manual(msg + ' Puedes ingresar los datos mirando la foto.');
   }
   if(!data || typeof data!=='object') return manual('La lectura vino vacía. Ingresa los datos mirando la foto.');
-  if(kind==='recibo') reviewReceipt(data, url); else reviewLabel(data, url);
+  if(kind==='recibo') reviewReceipt(data, url); else if(kind==='factura') reviewBillPhoto(data, url); else reviewLabel(data, url);
 }
 const int = v => { if(v==null || v==='') return null; const n = typeof v==='number' ? v : parseMoney(v); return Number.isFinite(n) ? Math.round(n) : null; };
 const num = v => { if(v==null || v==='') return null; const n = typeof v==='number' ? v : parseQty(v); return Number.isFinite(n) ? n : null; };
@@ -89,6 +98,15 @@ function reviewLabel(d, url){
   const m = d.nombre ? matchProducts([d.nombre, d.marca].filter(Boolean).join(' '), 1)[0] : null;
   priceFormSheet({title:'Revisar precio leído', photoUrl:url, source:'foto_etiqueta', readName:[d.nombre, d.presentacion].filter(Boolean).join(' · ') || null, readBrand:d.marca, brand:[d.marca, d.presentacion].filter(Boolean).join(' ') || '', price, qty, unit, isPromo:promo, date:fecha||todayStr(), storeId:matchStore(d.tienda), pum, pumText:d.pum_texto||null, warnings:w, raw:d,
     flags:{price:conf.precio==='baja'||price==null, qty:conf.contenido==='baja'||qty==null}, productId: null, suggested: m ? m.id : null});
+}
+function reviewBillPhoto(d, url){
+  const w = []; if(d.es_factura===false) w.push('No parece una factura de servicio. Revisa o ingresa los datos a mano.');
+  const conf = d.confianza||{}; if(conf.valor==='baja') w.push('Valor leído con baja confianza: confírmalo.'); if(conf.consumo==='baja') w.push('Consumo leído con baja confianza.');
+  const amount = int(d.valor_total), consumption = num(d.consumo); let due = validDate(d.fecha_limite); const period = typeof d.periodo==='string' && /^\d{4}-\d{2}$/.test(d.periodo) ? d.periodo : null;
+  if(d.empresa) w.push('Empresa leída: '+d.empresa+'. Verifica que el servicio elegido sea el correcto.');
+  let s = services().find(x=>d.empresa && norm(x.name).split(' ').some(t=>t.length>2 && norm(d.empresa).includes(t))) || services().find(x=>x.type===d.tipo);
+  if(!s && services().length===0){ toast('Primero agrega tus servicios'); return ACT.svcStarter(); }
+  billSheet(null, {serviceId: s ? s.id : null, amount, consumption, dueDate: due, period, photoUrl:url, warnings:w, raw:d, source:'foto_factura', flags:{amount:conf.valor==='baja'||amount==null, consumption:conf.consumo==='baja'}});
 }
 function reviewReceipt(d, url){
   const w = []; if(d.es_recibo===false) w.push('No parece un recibo. Revisa o ingresa los datos a mano.');
@@ -140,11 +158,14 @@ function exportData(kind){
     purchases().forEach(p=>{ if(!(p.items||[]).length) rows.push([p.date, storeName(p.storeId), '(sin detalle)','','','','','','',purchaseTotal(p), PAY[p.method]||'', p.source]);
       (p.items||[]).forEach(i=>{ const pr = prod(i.productId); rows.push([p.date, storeName(p.storeId), pr?pr.name:'', pr?CAT[pr.cat]?.name:'', i.qty, i.unit, i.qtyBase, i.total, i.discount||0, purchaseTotal(p), PAY[p.method]||'', p.source]); }); });
     return {filename:`compras-${todayStr()}.csv`, data:toCSV(rows)}; }
+  if(kind==='servicios'){ const rows = [['servicio','tipo','mes','consumo','unidad','valor','fecha_limite','estado','fecha_pago','medio','origen']];
+    bills().sort((a,b)=>(a.period||'').localeCompare(b.period||'')).forEach(b=>{ const sv = svc(b.serviceId); rows.push([sv?sv.name:'', sv?(SVC_TYPES[sv.type]||{}).name:'', b.period, b.consumption, sv?unitOf(sv):'', b.amount, b.dueDate||'', b.status, b.paidDate||'', PAY[b.method]||'', b.source||'']); });
+    return {filename:`servicios-${todayStr()}.csv`, data:toCSV(rows)}; }
   const rows = [['fecha','producto','marca','tienda','precio','cantidad','unidad','cantidad_base','precio_normalizado','por','promo','origen']];
   products(true).forEach(p=>obsFor(p.id).forEach(o=>rows.push([o.observedAt, p.name, o.brand||'', storeName(o.storeId), o.priceCop, o.qty, o.unit, o.qtyBase, o.np?Math.round(o.np):'', DIMS[p.dim].norm, o.isPromo?'si':'no', SRC[o.source]||o.source])));
   return {filename:`precios-${todayStr()}.csv`, data:toCSV(rows)};
 }
-ACT.exportMenu = ()=>{ openSheet('Exportar datos', `<p class="sub">Archivos para abrir en Excel o Google Sheets, o un respaldo completo.</p><div class="list">${[['compras','<i data-i=receipt></i> Compras y productos (CSV)'],['precios','<i data-i=tag></i> Historial de precios (CSV)'],['json','<i data-i=download></i> Respaldo completo (JSON)']].map(([k,n])=>`<div class="item"><div class="grow name">${n}</div><button class="btn sm" data-a="doExport" data-k="${k}">${(RT.downloads||RT.standalone)?'Descargar':'Copiar'}</button></div>`).join('')}</div>`); };
+ACT.exportMenu = ()=>{ openSheet('Exportar datos', `<p class="sub">Archivos para abrir en Excel o Google Sheets, o un respaldo completo.</p><div class="list">${[['compras','<i data-i=receipt></i> Compras y productos (CSV)'],['servicios','<i data-i=svc-luz></i> Servicios y facturas (CSV)'],['precios','<i data-i=tag></i> Historial de precios (CSV)'],['json','<i data-i=download></i> Respaldo completo (JSON)']].map(([k,n])=>`<div class="item"><div class="grow name">${n}</div><button class="btn sm" data-a="doExport" data-k="${k}">${(RT.downloads||RT.standalone)?'Descargar':'Copiar'}</button></div>`).join('')}</div>`); };
 ACT.doExport = async el=>{ const f = exportData(el.dataset.k);
   if(RT.downloads){ try{ await RT.downloads.save({filename:f.filename, data:f.data}); toast('Listo'); return; }catch(e){ if(e && e.code==='cancelled') return; } }
   if(RT.standalone){ try{ const blob = new Blob([f.data], {type: f.filename.endsWith('.json')?'application/json':'text/csv;charset=utf-8'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500); toast('Archivo descargado'); return; }catch(e){} }
@@ -187,13 +208,17 @@ ACT.loadDemo = ()=>confirmSheet('Cargar datos de ejemplo', 'Se agregan productos
   put('purchases', uid(), {storeId:'barrio', date:day(cur,1), items:[], extras:0, totalPaid:12300, method:'efectivo', notes:'Pan, gaseosa y huevos', source:'manual', quick:true, demo:true, history:[]});
   put('prices', uid(), {productId:P.huevos, qty:30, unit:'und', qtyBase:30, priceCop:16900, isPromo:true, storeId:'ara', observedAt:day(m1,25), source:'manual', status:'confirmado', demo:true});
   put('prices', uid(), {productId:P.aceite, qty:3000, unit:'ml', qtyBase:3000, priceCop:25900, isPromo:false, storeId:'exito', observedAt:day(m1,10), source:'manual', brand:'Presentación 3 L', status:'confirmado', demo:true});
+  const SV = {}; [['agua','EPM Agua','m³',null,15],['luz','EPM Energía','kWh',null,15],['gas','Vanti Gas','m³',null,20],['internet','Claro Hogar',null,95000,10],['admin','Administración',null,180000,5]].forEach(([t,n,u,usual,due],i)=>{ const id = uid(); SV[t] = id; put('services', id, {type:t, name:n, unit:u, usualAmount:usual, dueDay:due, order:i, demo:true}); });
+  const series = {agua:[[14,58200],[16,64800],[13,55900],[15,61300]], luz:[[142,98600],[158,109900],[149,104800],[171,121300]], gas:[[11,27400],[12,29100],[10,25800],[13,31600]], internet:[[null,95000],[null,95000],[null,95000],[null,99900]], admin:[[null,180000],[null,180000],[null,180000],[null,180000]]};
+  Object.entries(series).forEach(([t,arr])=>arr.forEach(([c,a],i)=>{ const per = monthShift(cur, i-3); const isCur = i===3; const due = per+'-'+String(Math.min(28, [15,15,20,10,5][Object.keys(series).indexOf(t)])).padStart(2,'0');
+    put('bills', uid(), {serviceId:SV[t], period:per, consumption:c, amount:a, dueDate:due, status: isCur && (t==='luz'||t==='internet') ? 'pendiente' : 'pagada', paidDate: isCur && (t==='luz'||t==='internet') ? null : (due>todayStr()?todayStr():due), method:'debito', source:'manual', demo:true}); }));
   addListItem(P.leche, 2200, 'ml', 'urgente'); addListItem(P.carne); addListItem(P.papa);
   if(!S.settings.budget) saveSettings({budget:1200000});
   toast('Datos de ejemplo cargados');
 });
 ACT.clearDemo = ()=>confirmSheet('Borrar datos de ejemplo', 'Se borran solo los productos, compras y precios marcados como ejemplo.', 'Borrar', ()=>{
   const ids = new Set(Object.entries(S.products).filter(([id,p])=>p.demo).map(([id])=>id));
-  ['purchases','prices'].forEach(c=>Object.entries(S[c]).forEach(([id,d])=>{ if(d.demo) remove(c,id); }));
+  ['purchases','prices','services','bills'].forEach(c=>Object.entries(S[c]).forEach(([id,d])=>{ if(d.demo) remove(c,id); }));
   Object.entries(S.list).forEach(([id,i])=>{ if(ids.has(i.productId)) remove('list', id); });
   ids.forEach(id=>remove('products', id)); toast('Ejemplos borrados'); }, true);
 
@@ -205,8 +230,8 @@ document.addEventListener('click', e=>{
   const el = e.target.closest('[data-a]'); if(!el) return;
   const a = el.dataset.a; if(!ACT[a]) return;
   if(el.tagName==='A') e.preventDefault();
-  if(['setInv','addToList','snooze','uncart','cartItem','delObs'].includes(a)) e.stopPropagation();
-  if(!RT.canWrite && !['go','back','sheetBack','closeSheet','repMonth','invFilter','productPrices','purchase','exportMenu','doExport','monthCompare','toggleShop','catalog','priceMenu'].includes(a)){ toast('Solo lectura: pide permiso de edición a quien comparte la app.'); return; }
+  if(['setInv','addToList','snooze','uncart','cartItem','delObs','payBill'].includes(a)) e.stopPropagation();
+  if(!RT.canWrite && !['go','back','sheetBack','closeSheet','repMonth','profileMenu','lockNow','svcDetail','invFilter','productPrices','purchase','exportMenu','doExport','monthCompare','toggleShop','catalog','priceMenu'].includes(a)){ toast('Solo lectura: pide permiso de edición a quien comparte la app.'); return; }
   RT.actCtx = {a, ds:Object.assign({}, el.dataset), inSheet: sheetIsOpen() && $('#sheet').contains(el)};
   try{ ACT[a](el, e); }catch(err){ console.error(err); toast('Algo falló: '+(err.message||err)); } finally { RT.actCtx = null; }
 });
@@ -216,7 +241,7 @@ document.addEventListener('input', e=>{
   if(t.dataset.pe){ peInput(t); return; }
   if(t.dataset.in){ UI[t.dataset.in] = t.value; const k = t.dataset.in, pos = t.selectionStart; render(); const n = document.querySelector(`[data-in="${k}"]`); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(er){} } }
 });
-document.addEventListener('change', e=>{ const t = e.target; if(t.dataset.pe && (t.tagName==='SELECT' || t.type==='checkbox' || t.type==='date')) peInput(t); });
+document.addEventListener('change', e=>{ const t = e.target; if(t.id==='setAutoLock'){ saveSettings({autoLockMin:+t.value}); toast('Guardado'); return; } if(t.dataset.pe && (t.tagName==='SELECT' || t.type==='checkbox' || t.type==='date')) peInput(t); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('#sheetwrap').classList.contains('open')) closeSheet(); });
 
 /* ================= NOMBRES DE MIEMBROS ================= */
@@ -238,6 +263,7 @@ if(RT.standalone){
 /* ================= ARRANQUE ================= */
 render();
 initStore().then(async ()=>{
+  if(needsLock() && !isUnlocked()) showLock();
   if(RT.sample){ try{ const l = await RT.sample.limits(); RT.imagesOK = !!(l && l.images); }catch(e){ RT.imagesOK = false; } } else RT.imagesOK = false;
   resolveNames();
 });

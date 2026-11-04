@@ -42,6 +42,22 @@ const ICONS = {
   phone: '<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/>',
   users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M16 14.2a4.6 4.6 0 0 1 4.5 4.8"/>',
   shield: '<path d="M12 3.5 19 6v5.5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  // servicios del hogar
+  'svc-agua': '<path d="M12 3.5c3 4 5.5 7 5.5 10a5.5 5.5 0 0 1-11 0c0-3 2.5-6 5.5-10z"/><path d="M8.5 14.5c1.2.8 2.3.8 3.5 0s2.3-.8 3.5 0"/>',
+  'svc-luz': '<path d="M9 17.5h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2v1.5h5V16c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+  'svc-gas': '<path d="M12 21a6 6 0 0 0 6-6c0-4-3-6.5-4-10-2 1.5-3 3.5-3 5.5-1-.5-1.8-1.5-2-2.5C7.6 10 6 12.3 6 15a6 6 0 0 0 6 6z"/><path d="M12 21a2.5 2.5 0 0 0 2.5-2.5c0-1.6-1.3-2.5-2.5-4-1.2 1.5-2.5 2.4-2.5 4A2.5 2.5 0 0 0 12 21z"/>',
+  'svc-internet': '<path d="M3 9.5a13 13 0 0 1 18 0"/><path d="M6 13a8.5 8.5 0 0 1 12 0"/><path d="M9 16.5a4 4 0 0 1 6 0"/><circle cx="12" cy="19.5" r=".8" fill="currentColor"/>',
+  'svc-tv': '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="m9 3 3 3 3-3M8 21h8"/>',
+  'svc-admin': '<path d="M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16"/><path d="M15 10h3a1 1 0 0 1 1 1v10M3 21h18"/><path d="M8.5 8h3M8.5 12h3M8.5 16h3"/>',
+  'svc-arriendo': '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16.5 6.5l2 2M14.5 8.5l2 2"/>',
+  'svc-aseo': '<path d="M4.5 7h15M10 4h4M6.5 7l1 13h9l1-13"/><path d="m10 12 2-2 2 2M12 10v6"/>',
+  'svc-otro': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12h8M12 8v8"/>',
+  // perfil
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.2" fill="currentColor"/>',
+  user: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>',
+  logout: '<path d="M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4"/><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15"/>',
+  backspace: '<path d="M8.5 5H20a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8.5L3 12z"/><path d="m11 9.5 5 5M16 9.5l-5 5"/>',
+  wallet: '<path d="M4 7.5V18a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H6a2 2 0 0 1-2-2 2 2 0 0 1 2-2h11"/><circle cx="16" cy="14" r="1.2" fill="currentColor"/>',
   // categorías
   'cat-proteinas': '<path d="M3 12c2.8-4.2 8.8-6 13-2.2L20 7v10l-4-2.8C11.8 18 5.8 16.2 3 12z"/><circle cx="8" cy="11.2" r=".7" fill="currentColor"/>',
   'cat-frutas': '<path d="M12 8c-4 0-7 2.6-7 6.5S8 21 12 21s7-2.6 7-6.5S16 8 12 8z"/><path d="M12 8V5"/><path d="M12 6c1-2 3-3 5-2.5-.5 2-2.5 3-5 2.5z"/>',

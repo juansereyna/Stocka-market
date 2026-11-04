@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 const read = p => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const parts = ['src/head.html', 'src/1core.js', 'src/2views.js', 'src/3sheets.js', 'src/4photo.js'].map(read);
+const parts = ['src/head.html', 'src/1core.js', 'src/2views.js', 'src/3sheets.js', 'src/3b-hogar.js', 'src/4photo.js'].map(read);
 const app = parts.join('') + '\n</script>\n</body>\n</html>\n';
 // comprobación de sintaxis del JS
 new Function(app.split('<script>')[1].split('</script>')[0]);

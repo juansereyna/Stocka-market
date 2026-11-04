@@ -1,6 +1,6 @@
 /* ================= HOJAS (MODALES) ================= */
 let SHEET_ON_CLOSE = null;
-const NAV_SHEETS = new Set(['quickActions','priceMenu','manualPrice','photoGal','quickPurchase','newPurchase','addItem','quickReview','catalog','editProduct','newProduct','productPrices','purchase','editPurchase','provisionals','assignProv','monthCompare','starter','exportMenu','newStore','pickShopStore','editItem','cartItem','closePurchase']);
+const NAV_SHEETS = new Set(['quickActions','priceMenu','manualPrice','photoGal','quickPurchase','newPurchase','addItem','quickReview','catalog','editProduct','newProduct','productPrices','purchase','editPurchase','provisionals','assignProv','monthCompare','starter','exportMenu','newStore','pickShopStore','editItem','cartItem','closePurchase','svcStarter','newService','editService','svcDetail','newBill','editBill','profileMenu','newProfile','editProfile']);
 const SHEETS = {stack:[], cur:null};
 const sheetIsOpen = () => $('#sheetwrap').classList.contains('open');
 function openSheet(title, body, onClose){
@@ -330,7 +330,7 @@ ACT.purchase = el=>{
     ${(p.items||[]).length?`<table class="t"><tr><th>Producto</th><th class="n">Cant.</th><th class="n">Total</th><th class="n">Por ${''}</th></tr>${p.items.map(i=>{ const pr = prod(i.productId); const np = pr?normPrice(i.total-(i.discount||0), i.qtyBase, pr.dim):null; return `<tr><td>${esc(pr?pr.name:'(producto borrado)')}${i.brand?`<div class="tiny">${esc(i.brand)}</div>`:''}${i.text?`<div class="tiny">${esc(i.text)}</div>`:''}</td><td class="n">${fmtQtyU(i.qty,i.unit)}</td><td class="n">${cop(i.total-(i.discount||0))}</td><td class="n tiny">${np?cop(np)+normLabel(pr.dim):''}</td></tr>`; }).join('')}</table>`:'<div class="sub">Sin detalle de productos.</div>'}
     ${p.extras?`<div class="row between" style="margin-top:8px"><span>Adicionales</span><b>${cop(p.extras)}</b></div>`:''}
     ${Math.abs(diff)>1 && (p.items||[]).length?`<div class="note warn">Ajuste / otros: ${cop(diff)} (diferencia entre la suma y el total del recibo).</div>`:''}
-    ${(p.history||[]).length?`<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Correcciones (${p.history.length})</summary>${p.history.map(h=>`<div class="tiny" style="margin:6px 0">${fmtDate(h.at)} ${h.at.slice(11,16)}${h.by&&RT.names[h.by]?' por '+esc(RT.names[h.by]):''}: antes ${cop(h.before.total)} · ${h.before.items.length} productos · ${esc(storeName(h.before.storeId))}</div>`).join('')}</details>`:''}
+    ${(p.history||[]).length?`<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Correcciones (${p.history.length})</summary>${p.history.map(h=>`<div class="tiny" style="margin:6px 0">${fmtDate(h.at)} ${h.at.slice(11,16)}${whoName(h.by)?' por '+esc(whoName(h.by)):''}: antes ${cop(h.before.total)} · ${h.before.items.length} productos · ${esc(storeName(h.before.storeId))}</div>`).join('')}</details>`:''}
     <div class="stickybar grid2"><button class="btn danger" data-a="voidPurchase" data-id="${id}">Anular</button><button class="btn" data-a="editPurchase" data-id="${id}">Corregir</button></div>`);
 };
 ACT.editPurchase = el=>{ const p = S.purchases[el.dataset.id];
@@ -349,6 +349,8 @@ ACT.quickActions = ()=>{
     <button data-a="manualPrice"><span class="ic"><i data-i=pencil></i></span>Precio a mano</button>
     <button data-a="quickPurchase"><span class="ic"><i data-i=bolt></i></span>Compra rápida</button>
     <button data-a="newPurchase"><span class="ic"><i data-i=cart></i></span>Compra detallada</button>
+    <button data-a="newBill"><span class="ic"><i data-i=svc-luz></i></span>Factura de servicio</button>
+    <button data-a="photo" data-k="factura"><span class="ic"><i data-i=wallet></i></span>Foto de factura</button>
     <button data-a="addItem"><span class="ic"><i data-i=list></i></span>Agregar a la lista</button>
     <button data-a="quickReview"><span class="ic"><i data-i=pantry></i></span>Revisar despensa</button>
     <button data-a="go" data-r="reportes"><span class="ic"><i data-i=chart></i></span>Ver reportes</button></div>`);
@@ -435,7 +437,7 @@ function productPricesSheet(id){
   openSheet(`${CAT[p.cat]?.ic||''} ${esc(p.name)}`, `
     ${nps.length?`<div class="grid2"><div class="card"><div class="tiny">Último</div><div class="money" style="font-size:1.2rem">${cop(nps[nps.length-1])}<span class="tiny">${normLabel(p.dim)}</span></div></div><div class="card"><div class="tiny">Mediana histórica</div><div class="money" style="font-size:1.2rem">${cop(median(nps))}<span class="tiny">${normLabel(p.dim)}</span></div></div>
       <div class="card"><div class="tiny">Mínimo</div><div class="money">${cop(Math.min(...nps))}</div></div><div class="card"><div class="tiny">Máximo</div><div class="money">${cop(Math.max(...nps))}</div></div></div>`:'<div class="note info">Aún no hay precios normalizables (falta cantidad o contenido).</div>'}
-    ${sparkSVG(obs, p.dim)}${cmp}
+    ${obs.filter(o=>o.np).length>=2?`<h3>Evolución del precio${normLabel(p.dim)}</h3>${lineChart({points:obs.filter(o=>o.np).map(o=>({x:o.observedAt, y:o.np, alt:o.isPromo, label:`${fmtDate(o.observedAt)} · ${storeName(o.storeId)} · ${cop(o.np)}${normLabel(p.dim)}${o.isPromo?' (promo)':''}`}))})}<div class="tiny">Puntos ámbar: precios de promoción.</div>`:''}${cmp}
     ${stRows.length?`<h3>Por tienda (últimos 90 días)</h3><div class="card">${stRows.map(r=>`<div class="row between"><span>${esc(storeName(r.s))} <span class="tiny">(${r.n})</span></span><b class="money">${cop(r.m)}${normLabel(p.dim)}</b></div>`).join('')}<div class="tiny" style="margin-top:6px">${enough?`Con los datos disponibles, ${esc(storeName(stRows[0].s))} ha sido la más económica.`:'Se necesitan al menos 3 registros por tienda para decir cuál es más económica.'}</div></div>`:''}
     <h3>Historial (${obs.length})</h3>
     ${[...obs].reverse().map(o=>`<div class="hist"><div class="grow"><b>${esc(storeName(o.storeId))}</b> <span class="tiny">${fmtDate(o.observedAt)}</span><div class="tiny">${esc(SRC[o.source]||o.source)}${o.isPromo?' · promo':''}${o.brand?' · '+esc(o.brand):''} · ${cop(o.priceCop)} por ${fmtBase(o.qtyBase,p.dim)}</div></div><div class="right money">${o.np?cop(o.np)+'<div class="tiny">'+normLabel(p.dim)+'</div>':'—'}</div><button class="x" style="width:40px;height:40px;font-size:.9rem" data-a="delObs" data-id="${o.id}" data-p="${id}" aria-label="Descartar"><i data-i=close></i></button></div>`).join('')}
